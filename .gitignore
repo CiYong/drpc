@@ -1,3 +1,31 @@
+# Autotools
+/Makefile
+libtool
+
+### automake
+Makefile.in
+.deps/
+.dirstamp
+### autoconf
+autom4te.cache
+aclocal.m4
+config
+config.status
+config.log
+configure
+stamp-h1
+
+ar-lib
+compile
+config.*
+depcomp
+install-sh
+ltmain.sh
+missing
+
+m4/libtool.m4
+m4/lt*.m4
+
 # Prerequisites
 *.d
 
@@ -25,6 +53,7 @@
 *.la
 *.a
 *.lib
+.libs
 
 # Executables
 *.exe
