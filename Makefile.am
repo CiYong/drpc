@@ -8,6 +8,9 @@ AM_CPPFLAGS= \
 
 lib_LTLIBRARIES=libdrpc.la
 
+include_HEADERS = \
+        include/drpc.hpp
+
 libdrpc_la_SOURCES= \
 	src/drpc.cpp \
 	src/channel.cpp
