@@ -1,0 +1,82 @@
+#ifndef __{{ scope }}_{{ interface_name }}_data_hpp__
+#define __{{ scope }}_{{ interface_name }}_data_hpp__
+
+#include "pack.hpp"
+
+namespace {{ scope }} {
+
+enum class {{ name }}Api {
+{% for function in functions %}    {{function.ident}} = {{ function.id }}, // {{ function.comment }}
+{% endfor %}
+};
+
+} // namespace {{ scope }}
+
+using namespace {{ scope }};
+MSGPACK_ADD_ENUM({{ name }}Api);
+
+namespace {{ scope }} {
+{% for enumurator in data_types.enums %}
+enum class {{ enumurator.ident }} {
+{% for member in enumurator.members %}    {{ member.name }} = {{ member.type }},
+{% endfor %}
+};
+{% endfor %}
+{% for data_struct in data_types.structs %}
+// {{ data_struct.ident }}
+struct {{ data_struct.ident }} {
+    {% for member in data_struct.members %} {{ member.type }} {{ member.name }};
+    {% endfor %}
+};
+{% endfor %}
+} // namespace {{ scope }}
+{% for enumurator in data_types.enums %}
+MSGPACK_ADD_ENUM({{ enumurator.ident }});{% endfor %}
+
+namespace msgpack {
+MSGPACK_API_VERSION_NAMESPACE(MSGPACK_DEFAULT_API_NS) {
+namespace adaptor {
+
+{% for data_struct in data_types.structs %}
+template<>
+struct convert<{{ data_struct.ident }}> {
+    msgpack::object const& operator()(msgpack::object const& o, {{ data_struct.ident }}& v) const {
+        if (o.type != msgpack::type::ARRAY) throw msgpack::type_error();
+        if (o.via.array.size != {{ data_struct.size }}) throw msgpack::type_error();
+        v = {{ data_struct.ident }}{
+            {% for member in data_struct.members %}o.via.array.ptr[{{ member.index }}].as<{{ member.type }}>(){% if not member.is_last %}, {% endif %}
+            {% endfor %}};
+        return o;
+    }
+};
+
+template<>
+struct pack<{{ data_struct.ident }}> {
+    template <typename Stream>
+    packer<Stream>& operator()(msgpack::packer<Stream>& o, {{ data_struct.ident }} const& v) const {
+        // packing member variables as an array.
+        o.pack_array({{ data_struct.size }});
+        {% for member in data_struct.members %}o.pack(v.{{ member.name }});
+        {% endfor %}
+        return o;
+    }
+};
+
+template <>
+struct object_with_zone<{{ data_struct.ident }}> {
+    void operator()(msgpack::object::with_zone& o, {{ data_struct.ident }} const& v) const {
+        o.type = type::ARRAY;
+        o.via.array.size = {{ data_struct.size }};
+        o.via.array.ptr = static_cast<msgpack::object*>(
+                            o.zone.allocate_align(sizeof(msgpack::object) * o.via.array.size,
+                            MSGPACK_ZONE_ALIGNOF(msgpack::object)));
+        {% for member in data_struct.members %}o.via.array.ptr[{{member.index}}] = msgpack::object(v.{{ member.name }}, o.zone);
+        {% endfor %}
+    }
+};
+{% endfor %}
+} // namespace adaptor
+} // MSGPACK_API_VERSION_NAMESPACE(MSGPACK_DEFAULT_API_NS)
+} // namespace msgpack
+
+#endif // __{{ scope }}_{{ interface_name }}_data_hpp__

@@ -19,9 +19,7 @@
 #ifndef __DRPC_HPP__
 #define __DRPC_HPP__
 
-#include <string>
-#include <vector>
-#include <deque>
+#include "pack.hpp"
 
 namespace drpc {
 

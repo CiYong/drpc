@@ -3,7 +3,6 @@
 
 AC_PREREQ([2.69])
 AC_INIT([drpc], [0.1.0], [https://github.com/CiYong/drpc])
-AC_CONFIG_SRCDIR([src/drpc.cpp])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([-Wall foreign subdir-objects])
 
@@ -12,7 +11,7 @@ m4_include([m4/ax_cxx_compile_stdcxx_11.m4])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 # Checks for programs.
-AX_CXX_COMPILE_STDCXX_11([ext], [optional])
+AC_PROG_CXX
 
 # Libtool configuration for different targets
 AM_PROG_AR
@@ -34,6 +33,7 @@ AC_TYPE_UINT8_T
 AC_FUNC_ERROR_AT_LINE
 AC_CHECK_FUNCS([socket])
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile
+                 src/core/cpp/Makefile])
 
 AC_OUTPUT
