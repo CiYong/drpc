@@ -1,0 +1,19 @@
+ThinkingFuture:
+    type: bi
+    scope: drift
+    interface:
+        ping:
+          comment: 'communication ping.'
+          output: None
+          input:
+            event: int
+            enable: bool
+        pong:
+          comment: 'communication pong.'
+          output: None
+          input: None
+        place_order:
+          comment: 'Place order.'
+          output: bool
+          input:
+            orders: vec<Order>

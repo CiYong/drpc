@@ -1,0 +1,36 @@
+#ifndef __{{ scope }}_{{ interface_name }}_server_hpp__
+#define __{{ scope }}_{{ interface_name }}_server_hpp__
+
+#include "{{ interface_name }}_data.hpp"
+#include "drpc.hpp"
+
+namespace {{ scope }} {
+
+class {{ name }}ServerIF : public drpc::ServerHandler
+{
+public:
+    {{ name }}ServerIF () {}
+    ~{{ name }}ServerIF () {}
+
+    virtual void switch_interface(drpc::Message& msg) {
+        if (msg.size() <= 1) {
+            return;
+        }
+
+        switch (drpc::unpack<{{ name }}Api>(msg[1])) {
+        {% for function in functions %}
+        case {{ name }}Api::{{ function.ident }}:
+            this->{{ function.ident }}({% for input in function.inputs %}drpc::unpack<{{ input.type }}>(msg[{{ input.index }} + 2]){% if not input.is_last %}, {% endif %}{% endfor %});
+            break;{% endfor %}
+        default:
+            break;
+        }
+    }
+    {% for function in functions %}
+    // {{ function.comment }}
+    virtual {% for output in function.outputs %}{{ output }}{% endfor %} {{function.ident}} ({% for input in function.inputs %}{{ input.type }} {{ input.name }}{% if not input.is_last %}, {% endif %}{% endfor %}) = 0;
+    {% endfor %}
+};
+
+} // namespace {{ scope }}
+#endif // __{{ scope }}_{{ interface_name }}_server_hpp__
