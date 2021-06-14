@@ -30,7 +30,7 @@ class Function:
             self.outputs_size = len(output_)
             self.outputs.append("void")
         else:
-            self.outputs = output_
+            self.outputs.append(output_)
 
         # index = 0
         #
@@ -47,6 +47,13 @@ class Function:
             for abstract_type, language_type in basic_types_.items():
                 if abstract_type in input.type:
                     input.type = input.type.replace(abstract_type, language_type)
+
+
+        for i in range(len(self.outputs)):
+            for abstract_type, language_type in basic_types_.items():
+                if abstract_type in self.outputs[i]:
+                    self.outputs[i] = self.outputs[i].replace(abstract_type, language_type)
+
         return
 
 
@@ -89,8 +96,8 @@ class Apis:
         for struct in customize_types_.structs:
             for member in struct.members:
                 for abstract_type, language_type in basic_types_.items():
-                    if member.type in abstract_type:
-                        member.type = language_type
+                    if abstract_type in member.type:
+                        member.type = member.type.replace(abstract_type, language_type)
 
         return
 

@@ -2,7 +2,6 @@
 #define __{{ scope }}_{{ interface_name }}_client_hpp__
 
 #include "{{ interface_name }}_data.hpp"
-#include "drpc.hpp"
 
 namespace {{ scope }} {
 
@@ -16,10 +15,10 @@ public:
     // {{ function.comment }}
     {% for output in function.outputs %}{{ output }}{% endfor %} {{ function.ident }} ({% for input in function.inputs %}{{ input.type }} {{ input.name }}{% if not input.is_last %}, {% endif %}{% endfor %}) {
         drpc::Message msg;
-        auto head = drpc::pack({{ name }}Api::{{ function.ident }});
+        auto head = drpc::msgpack_pack({{ name }}Api::{{ function.ident }});
         msg.emplace_back(head);
         {% for input in function.inputs %}
-        msg.emplace_back(drpc::pack({{ input.name }}));{% endfor %}
+        msg.emplace_back(drpc::msgpack_pack({{ input.name }}));{% endfor %}
         this->send(std::move(msg));
     }
     {% endfor %}
