@@ -2,8 +2,7 @@
 # -*-coding:utf-8 -*-
 
 import os
-# from jinja2 import Environment, FileSystemLoader
-
+from collections import OrderedDict
 from data_types import BasicTypes, Types
 from interface import InterfaceTemplate, Api, Apis, Function
 import utils
@@ -26,11 +25,11 @@ class DRPCGenerator:
 
     def parse_interface(self, interface_):
         # 1. parse data struct.
-        yaml_datas = utils.ordered_yaml_load("interface/" + interface_ + "_" + "data.yaml")
+        yaml_datas = utils.ordered_yaml_load("interface/" + interface_ + "_data.yaml")
         self.customize_types = Types(yaml_datas)
 
         # 2. parse api
-        yaml_apis = utils.ordered_yaml_load("interface/" + interface_ + "_" + "api.yaml")
+        yaml_apis = utils.ordered_yaml_load("interface/" + interface_ + "_api.yaml")
         apis = Apis(interface_, yaml_apis)
 
         return apis
@@ -45,20 +44,49 @@ class DRPCGenerator:
 
     @staticmethod
     def load_template(args):
-        template_files = ["data", "client", "server"]
         template_path = "template"
-        templates = []
+        main_template = ["data", "client", "server"]
+        api_template = ["reqrep", "broadcast"]
 
-        for file in template_files:
+        templates = OrderedDict()
+        # api_client_templates = OrderedDict()
+        # api_server_templates = OrderedDict()
+
+        for file in main_template:
             template = InterfaceTemplate()
             template.load_template(template_path, args.language, file)
-            templates.append(template)
+            templates[file] = template
+
+        # for file in api_template:
+        #     client_template = InterfaceTemplate()
+        #     client_template.load_template(template_path, args.language, file + "_client_interface")
+        #     api_client_templates[file] = client_template
+        #
+        #     server_template = InterfaceTemplate()
+        #     server_template.load_template(template_path, args.language, file + "_server_interface")
+        #     api_server_templates[file] = server_template
 
         return templates
 
     def render(self, apis_, templates_):
-        for template in templates_:
-            template.render(apis_[0], self.customize_types)
+        all_functions = []
+        reqrep_functions = None
+        broadcast_functions = None
+
+        for api in apis_:
+            all_functions += api.functions
+
+            if api.type == "reqrep":
+                reqrep_functions = api.functions
+
+            if api.type == "broadcast":
+                broadcast_functions = api.functions
+
+        for type, template in templates_.items():
+            if type == "data":
+                template.render_data(apis_[0], all_functions, self.customize_types)
+            else:
+                template.render_main(apis_[0], reqrep_functions, broadcast_functions, self.customize_types)
 
         return templates_
 
@@ -66,8 +94,9 @@ class DRPCGenerator:
     def generate(args, apis_, templates_):
         output_path = "./output"
 
-        for template in templates_:
+        for type, template in templates_.items():
             template.generate(output_path, args.language, apis_[0].interface_name)
+
         return
 
     @staticmethod
@@ -79,22 +108,21 @@ class DRPCGenerator:
         file_name = ""
         prefix = 0
 
-        for api in apis_:
-            for index, charactor in enumerate(api.name):
-                if charactor.isupper():
-                    if prefix != index:
-                        file_name = file_name + api.name[prefix:index].lower() + "_"
-                        prefix = index
+        for index, charactor in enumerate(apis_[0].name):
+            if charactor.isupper():
+                if prefix != index:
+                    file_name = file_name + apis_[0].name[prefix:index].lower() + "_"
+                    prefix = index
 
-                if index + 1 == len(api.name):
-                    file_name = file_name + api.name[prefix:index + 1].lower() + "_"
+            if index + 1 == len(apis_[0].name):
+                file_name = file_name + apis_[0].name[prefix:index + 1].lower() + "_"
 
-            content += file_name + "data.hpp "
-            content += file_name + "client.hpp "
-            content += file_name + "server.hpp "
+        content += file_name + "data.hpp "
+        content += file_name + "client.hpp "
+        content += file_name + "server.hpp "
 
-            file_name = ""
-            prefix = 0
+        file_name = ""
+        prefix = 0
 
         file = open(output_path + "/" + apis_[0].interface_name + "/Makefile.am", "w+")
         file.write(content)
@@ -136,9 +164,9 @@ class DRPCGenerator:
         return
 
     def make(self):
-        os.system("./autogen.sh")
-        os.system("./configure")
-        os.system("make clean")
-        os.system("sudo make install")
+        configure = os.system("./autogen.sh")
+        configure = os.system("./configure")
+        configure = os.system("make clean")
+        configure = os.system("sudo make install")
 
         return

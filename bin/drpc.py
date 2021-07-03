@@ -67,9 +67,9 @@ def main():
 
     # 6. generate interface file.
     generator.generate(args, apis, templates)
-
+    #
     generator.install_am(apis)
-
+    #
     generator.make()
 
     print("[DRPC] <" + args.interface + "> interface file was generated in output directory.")

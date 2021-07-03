@@ -1,0 +1,31 @@
+BuySell:
+    type: enum
+    members:
+        buy: 1
+        sell: 2
+
+FutureOption:
+    type: enum
+    members:
+        future: 1
+        option: 2
+
+Order:
+    type: struct
+    members:
+        buy_sell: BuySell
+        quantity: u64
+        price: u64
+        fut_opt: FutureOption
+        mount: u64
+
+Comission:
+    type: struct
+    members:
+        quantity: u64
+        buy_sell: BuySell
+
+Orders:
+    type: template
+    members:
+        inner: vec<Order>

@@ -1,0 +1,69 @@
+dchat:
+    type: bi
+    scope: drift
+    interface:
+        send_msg:
+          comment: 'Basic send message.'
+          output: bool
+          input:
+            account_id: string
+            contact_id: string
+            messages: Message
+        send_group:
+          comment: 'Group send message.'
+          output: bool
+          input:
+            account_id: string
+            contacts: vec<string>
+            messages: vec<Message>
+        pull_message:
+          comment: 'Pull unread message from server.'
+          output: vec<PullMessage>
+          input:
+            account_id: string
+        contact_add_new:
+          comment: 'Add new contact by contact id.'
+          output: bool
+          input:
+            account_id: string
+            contact_id: string
+        contact_delete:
+          comment: 'Delete contact by contact id.'
+          output: bool
+          input:
+            account_id: string
+            contact_id: string
+        contacts_load:
+          comment: 'basic send message.'
+          output: vec<Contact>
+          input:
+            account_id: string
+        contact_update:
+          comment: 'Update contact settings.'
+          output: bool
+          input:
+            account_id: string
+            contact: Contact
+        account_load:
+          comment: 'Load account settings.'
+          output: Account
+          input:
+            account_id: string
+        account_update:
+          comment: 'Update account settings.'
+          output: bool
+          input:
+            account: Account
+        voice_call:
+          comment: 'Establish connection for voice communication.'
+          output: bool
+          input:
+            account_id: string
+            contact_id: string
+        video_call:
+          comment: 'Establish connection for video communication.'
+          output: bool
+          input:
+            account_id: string
+            contact_id: string
+

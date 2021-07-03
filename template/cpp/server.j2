@@ -2,6 +2,7 @@
 #define __{{ scope }}_{{ interface_name }}_server_hpp__
 
 #include "{{ interface_name }}_data.hpp"
+#include "drpc.hpp"
 
 namespace {{ scope }} {
 
@@ -11,24 +12,50 @@ public:
     {{ name }}ServerIF () {}
     ~{{ name }}ServerIF () {}
 
-    virtual void switch_interface(drpc::Message& msg) {
-        if (msg.size() <= 1) {
-            return;
+    // Switch interface for receive message.
+    virtual drpc::Message switch_interface(drpc::Message& msg) {
+        if (msg.empty()) {
+            return {};
         }
 
-        switch (drpc::unpack<{{ name }}Api>(msg[1])) {
-        {% for function in functions %}
+        drpc::Part result;
+
+        auto ident = drift::orm::msgpack_unpack<CallIdent>(msg[0]);
+        switch (static_cast<{{ name }}Api>(ident.interface)) {
+        {% for function in reqrep_functions %}
         case {{ name }}Api::{{ function.ident }}:
-            this->{{ function.ident }}({% for input in function.inputs %}drpc::msgpack_unpack<{{ input.type }}>(msg[{{ input.index }} + 2]){% if not input.is_last %}, {% endif %}{% endfor %});
+            result = drift::orm::msgpack_pack(this->on_{{ function.ident }}({% for input in function.inputs %}
+                                                    drift::orm::msgpack_unpack<{{ input.type }}>(msg[{{ input.index }} + 1]){% if not input.is_last %}, {% endif %}{% endfor %}));
             break;{% endfor %}
         default:
             break;
         }
+
+        return {msg[0], std::move(result)};
     }
-    {% for function in functions %}
+
+    // ******** Request/Response interface ********
+    {% for function in reqrep_functions %}
     // {{ function.comment }}
-    virtual {% for output in function.outputs %}{{ output }}{% endfor %} {{function.ident}} ({% for input in function.inputs %}{{ input.type }} {{ input.name }}{% if not input.is_last %}, {% endif %}{% endfor %}) = 0;
+    virtual {% for output in function.outputs %}{{ output.type }}{% endfor %} on_{{function.ident}} ({% for input in function.inputs %}{{ input.type }} {{ input.name }}_{% if not input.is_last %}, {% endif %}{% endfor %}) = 0;
     {% endfor %}
+    // ******** Request/Response interface ********
+
+    // ******** Broadcast interface ********
+    {% for function in broadcast_functions %}
+    // {{ function.comment }}
+    void {{ function.ident }} ({% for input in function.inputs %}{{ input.type }} {{ input.name }}_{% if not input.is_last %}, {% endif %}{% endfor %}) {
+        drpc::Message msg;
+        CallIdent ident{static_cast<uint8_t>({{ name }}Api::{{ function.ident }}), 0};
+        msg.emplace_back(drift::orm::msgpack_pack(ident));
+        {% for input in function.inputs %}
+        msg.emplace_back(drift::orm::msgpack_pack({{ input.name }}_));{% endfor %}
+
+        this->broadcast(std::move(msg));
+    }
+    {% endfor %}
+
+    // ******** Broadcast interface ********
 };
 
 } // namespace {{ scope }}

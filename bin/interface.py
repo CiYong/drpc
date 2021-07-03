@@ -2,6 +2,7 @@
 # -*-coding:utf-8 -*-
 
 import os
+from collections import OrderedDict
 from jinja2 import Environment, FileSystemLoader
 import utils
 from data_types import DataMember
@@ -21,24 +22,19 @@ class Function:
             self.inputs_size = len(input_.keys())
             index = 0
             for member_name, member_type in input_.items():
-                is_last = index == (self.inputs_size - 1)
-                member = DataMember(index, member_name, member_type, is_last)
+                is_input_last = index == (self.inputs_size - 1)
+                member = DataMember(index, member_name, member_type, is_input_last)
                 self.inputs.append(member)
                 index += 1
 
-        if output_ == "None":
-            self.outputs_size = len(output_)
-            self.outputs.append("void")
-        else:
-            self.outputs.append(output_)
-
-        # index = 0
-        #
-        # for member_type in output_.items():
-        #     is_last = index == (self.output_size - 1)
-        #     member = DataMember(index, member_name, member_type, is_last)
-        #     self.input.append(member)
-        #     index += 1
+        if output_ != "None":
+            self.inputs_size = len(output_.keys())
+            index = 0
+            for member_name, member_type in output_.items():
+                is_output_last = index == (self.inputs_size - 1)
+                member = DataMember(index, member_name, member_type, is_output_last)
+                self.outputs.append(member)
+                index += 1
 
         return
 
@@ -48,11 +44,10 @@ class Function:
                 if abstract_type in input.type:
                     input.type = input.type.replace(abstract_type, language_type)
 
-
-        for i in range(len(self.outputs)):
+        for output in self.outputs:
             for abstract_type, language_type in basic_types_.items():
-                if abstract_type in self.outputs[i]:
-                    self.outputs[i] = self.outputs[i].replace(abstract_type, language_type)
+                if abstract_type in output.type:
+                    output.type = output.type.replace(abstract_type, language_type)
 
         return
 
@@ -71,26 +66,67 @@ class Apis:
         self.inner = []
 
         for api_name, api_attr in apis_.items():
-            api = Api()
-            api.interface_name = interface_name_
-            api.name = api_name
-            api.type = api_attr['type']
-            api.scope = api_attr['scope']
+            scope = ''
+            api_id_offset = 0
+            for item_key, item_value in api_attr.items():
+                if item_key == 'scope':
+                    scope = item_key
+                    continue
 
-            api_id = 0
+                api = Api()
+                api.interface_name = interface_name_
+                api.scope = scope
+                api.name = api_name
 
-            for ident, info in api_attr['interface'].items():
-                interface = Function(api_id,
-                                     ident,
-                                     info['comment'],
-                                     info['input'],
-                                     info['output'])
+                if item_key == 'reqrep':
+                    api.type = item_key
+                    api.functions = self.parse_api_attr(api_id_offset, item_value)
 
-                api.functions.append(interface)
-                api_id = api_id + 1
+                if item_key == 'broadcast':
+                    api.type = item_key
+                    api.functions = self.parse_api_attr(api_id_offset, item_value)
 
-            self.inner.append(api)
+                api_id_offset += 20
+
+                self.inner.append(api)
+
         return
+
+    def types(self):
+        types = []
+        for api in self.inner:
+            types.append(api.type)
+
+        return types
+
+    def parse_api_attr(self, api_id_offset_, items_):
+        functions = []
+
+        api_id = api_id_offset_
+        for ident, info in items_.items():
+            comment = ''
+            input = OrderedDict()
+            output = OrderedDict()
+
+            if 'comment' in info.keys():
+                comment = info['comment']
+
+            if 'input' in info.keys():
+                input = info['input']
+
+            if 'output' in info.keys():
+                output = info['output']
+
+            interface = Function(api_id,
+                                 ident,
+                                 comment,
+                                 input,
+                                 output)
+
+            functions.append(interface)
+            api_id = api_id + 1
+
+        return functions
 
     def replace_abstract_types(self, customize_types_, basic_types_):
         for struct in customize_types_.structs:
@@ -118,7 +154,6 @@ class Apis:
     def __delitem__(self, key):
         del self.inner[key]
 
-
 class InterfaceTemplate:
     def __init__(self):
         self.__template_file = None
@@ -131,13 +166,30 @@ class InterfaceTemplate:
         self.__template_file = template_file_
         return
 
-    def render(self, interface_, customize_types_):
+    def render_api(self, interface_, customize_types_):
         self.__content = self.__template.render(scope=interface_.scope,
                                                 interface_name=interface_.interface_name,
                                                 name=interface_.name,
                                                 functions=interface_.functions,
                                                 data_types=customize_types_)
-        return
+        return self.__content
+
+    def render_main(self, interface_, reqrep_functions_, broadcast_functions_, customize_types_):
+        self.__content = self.__template.render(scope=interface_.scope,
+                                                interface_name=interface_.interface_name,
+                                                name=interface_.name,
+                                                reqrep_functions=reqrep_functions_,
+                                                broadcast_functions=broadcast_functions_,
+                                                data_types=customize_types_)
+        return self.__content
+
+    def render_data(self, interface_, functions_, customize_types_):
+        self.__content = self.__template.render(scope=interface_.scope,
+                                                interface_name=interface_.interface_name,
+                                                name=interface_.name,
+                                                functions=functions_,
+                                                data_types=customize_types_)
+        return self.__content
 
     def generate(self, path_, language_, interface_name_):
         # if self.__language == 'cpp':

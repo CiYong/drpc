@@ -106,7 +106,9 @@ inline Message recv(zmq::socket_t& socket) {
         if (!socket.recv(&part)) {
             return {};
         }
-        msg.emplace_back(part.data<uint8_t>(), part.data<uint8_t>() + part.size());
+        if (part.size() > 0) {
+            msg.emplace_back(part.data<uint8_t>(), part.data<uint8_t>() + part.size());
+        }
     } while (socket.get(zmq::sockopt::rcvmore));
 
     return msg;
@@ -147,6 +149,10 @@ zmq::context_t& Sender::context() {
 
 uint64_t Sender::number() {
     return m_seqno += 1;
+}
+
+Message Sender::recv() {
+    return internal::recv(m_socket);
 }
 
 Receiver::Receiver(const internal::Config& config, ServerHandler* server)
@@ -215,7 +221,7 @@ void Receiver::start() {
                         seq_check(*reinterpret_cast<uint64_t*>(num.data()));
                     }
 
-                    m_handler->dispatch("", std::move(msg));
+                    m_handler->dispatch(std::move(msg));
                 } catch (std::exception& e) {
                     util::error(m_handler, -1, "Uncaught exception on receiving: %s", e.what());
                     break;
@@ -245,6 +251,8 @@ Bidirectional::Bidirectional(const internal::Config& config, ServerHandler* serv
         std::cerr << "seq_check not supported in Bidirectional" << std::endl;
     }
 
+    m_handler->set_bichannel(this);
+
     internal::init_socket(m_socket, m_config, m_handler);
     init_forward();
     start();
@@ -270,6 +278,10 @@ zmq::socket_t& Bidirectional::socket() {
 
 zmq::context_t& Bidirectional::context() {
     return m_context;
+}
+
+bool Bidirectional::need_reply() {
+    return (static_cast<zmq::socket_type>(m_socket.get(zmq::sockopt::type)) == zmq::socket_type::router) ? true : false;
 }
 
 void Bidirectional::init_forward() {
@@ -298,15 +310,21 @@ void Bidirectional::start() {
         items[1].socket = static_cast<void*>(m_rx);
         items[1].events = ZMQ_POLLIN | ZMQ_POLLERR;
 
-        auto listen_sendout = [&] { items[0].events |= ZMQ_POLLOUT; };
-        auto unlisten_sendout = [&] { items[0].events &= ~ZMQ_POLLOUT; };
-        auto is_sendout = [&] { return m_socket.get(zmq::sockopt::events) & ZMQ_POLLOUT; };
+        auto listen_sendout = [&] {
+            items[0].events |= ZMQ_POLLOUT; 
+        };
+        auto unlisten_sendout = [&] {
+            items[0].events &= ~ZMQ_POLLOUT;
+        };
+        auto is_sendout = [&] {
+            return m_socket.get(zmq::sockopt::events) & ZMQ_POLLOUT;
+        };
 
         auto last_recv = std::chrono::system_clock::now();
 
         while (m_running) {
             try {
-                if (zmq::poll(items, 200) < 0) {
+                if (zmq::poll(items, 100) < 0) {
                     m_handler->on_error( -1, "ZMQ error on poll");
                     break;
                 }
@@ -332,7 +350,7 @@ void Bidirectional::start() {
                         continue;
                     }
 
-                    m_handler->dispatch(std::move(id), std::move(msg));
+                    m_handler->dispatch(std::move(msg));
                 } catch (zmq::error_t e) {
                     util::error(m_handler, e.num(), "ZMQ error on receiving: %s", e.what());
                     break;

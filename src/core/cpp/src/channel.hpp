@@ -16,8 +16,8 @@
  *
  */
 
-#ifndef __CHANNEL_HPP__
-#define __CHANNEL_HPP__
+#ifndef __drpc_channel_hpp__
+#define __drpc_channel_hpp__
 
 #include <deque>
 #include <functional>
@@ -32,62 +32,9 @@
 
 #include "zmq.hpp"
 #include "drpc.hpp"
+#include "handler.hpp"
 
 namespace drpc {
-
-using Part = std::vector<uint8_t>;
-using Message = std::deque<Part>;
-
-class Handler {
-public:
-    virtual void on_error(int type, const std::string& client_id) = 0;
-    virtual void dispatch(std::string&& client_id, drpc::Message&& msg) = 0;
-    virtual void on_connected(bool state, const std::string& client_id) = 0;
-};
-
-class ErrorHandler : public Handler {
-public:
-    ErrorHandler() {}
-    ~ErrorHandler() {}
-
-    virtual void on_error(int type, const std::string& client_id) {
-        std::cout << type << client_id << ":" << __func__ << __LINE__ << std::endl;
-    }
-
-    virtual void dispatch(std::string&& client_id, drpc::Message&& msg) {
-        std::cout << client_id << ":"  << msg.size() << __func__ << __LINE__ << std::endl;
-    }
-
-    virtual void on_connected(bool state, const std::string& client_id) {
-        std::cout << state << client_id << ":" << __func__ << __LINE__ << std::endl;
-    }
-};
-
-class Router : public Handler {
-public:
-    Router(drpc::ServerHandler* server)
-        : m_server(server) {
-    }
-    ~Router() {delete m_server; m_server = NULL;}
-
-    virtual void on_error(int type, const std::string& client_id) {
-        std::cout << type << client_id << __func__ << __LINE__ << std::endl;
-    }
-
-    virtual void dispatch(std::string&& client_id, drpc::Message&& msg) {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_clients.insert(client_id);
-        m_server->process_message(msg);
-    }
-
-    virtual void on_connected(bool state, const std::string& client_id) {
-        std::cout << state << client_id << ":" << __func__ << __LINE__ << std::endl;
-    }
-
-    drpc::ServerHandler* m_server;
-    std::set<std::string> m_clients;
-    std::mutex m_mutex;
-};
 
 namespace util {
 
@@ -143,6 +90,8 @@ public:
     zmq::socket_t& socket();
     zmq::context_t& context();
 
+    Message recv();
+
 private:
     uint64_t number();
 
@@ -182,6 +131,8 @@ public:
     zmq::socket_t& socket();
     zmq::context_t& context();
 
+    bool need_reply();
+
 private:
     void init_forward();
     void start();
@@ -205,9 +156,9 @@ private:
     bool m_checkconn;
     std::unordered_set<std::string> m_clients;
     std::chrono::system_clock::time_point m_last_check;
-    Handler* m_handler;
+    Router* m_handler;
 };
 
 } // namespace drpc
 
-#endif // __CHANNEL_HPP__
+#endif // __drpc_channel_hpp__

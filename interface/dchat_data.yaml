@@ -1,0 +1,129 @@
+MessageType:
+    type: enum
+    members:
+        text: 1
+        picture: 2
+        audio: 3
+        video: 2
+        voice_call: 2
+        video_call: 2
+        red_packet: 3
+        transfer: 5
+
+Message:
+    type: struct
+    members:
+        type: MessageType 
+        is_read: bool
+        content: string
+
+LanguageSettings:
+    type: enum
+    members:
+        simplified_china: 1
+        traditional_chinese: 2
+        english: 3
+        japanese: 4
+
+AccountBasicInfo:
+    type: struct
+    members:
+        id: string
+        name: string
+        gender: string
+        region: string
+        whats_up: string
+        qr_code: string
+        photo: string
+
+AccountSecurity:
+    type: struct
+    members:
+        id: string
+        phone: string
+        password: string
+        emergency_contacts: vec<string>
+        manage_devices: vec<string>
+        qq_id: string
+        email: string
+
+AccountNotification:
+    type: struct
+    members:
+        message_notification: bool
+        voice_video_call_notification: bool
+        show_preview_text: bool
+        sound: bool
+        vibrate: bool
+        moments: bool
+        channels: bool
+
+FindMeMethod:
+    type: struct
+    members:
+        mobile_number: bool
+        id: bool
+        qq_id: bool
+
+AddMeMethod:
+    type: struct
+    members:
+        group_chat: bool
+        qr_code: bool
+        contact_card: bool
+
+MethodsFriendingMe:
+    type: struct
+    members:
+        find_me_method: FindMeMethod
+        add_me_method: AddMeMethod
+
+VisibleToFriends:
+    type: enum
+    members:
+        all: 1
+        last_6_months: 2
+        last_month: 3
+        last_3_days: 4
+
+MomentsTimeCapsule:
+    type: struct
+    members:
+        hide_my_posts: vec<string>
+        hide_their_posts: vec<string>
+        visible_to_friends: VisibleToFriends
+
+
+AccountPrivacy:
+    type: struct
+    members:
+        require_friend_request: bool
+        methods_friending_me: MethodsFriendingMe
+        blocked_list: vec<string>
+
+GeneralSettings:
+    type: struct
+    members:
+        dark_mode: bool
+        language: LanguageSettings
+        text_size: u8
+        background: string
+
+Account:
+    type: struct
+    members:
+        id : string
+        basic: AccountBasicInfo
+        security: AccountSecurity
+
+Contact:
+    type: struct
+    members:
+        basic: string
+        privacy: string
+
+PullMessage:
+    type: struct
+    members:
+        contact_id: string
+        message: vec<Message>

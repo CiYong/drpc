@@ -2,26 +2,71 @@
 #define __{{ scope }}_{{ interface_name }}_client_hpp__
 
 #include "{{ interface_name }}_data.hpp"
+#include "drpc.hpp"
 
 namespace {{ scope }} {
 
-class {{ name }}Client : public drpc::ClientHandler
+class {{ name }}ClientIF : public drpc::AsyncClientHandler
 {
 public:
-    {{ name }}Client (const std::string& address)
-        : drpc::ClientHandler(address) {}
-    ~{{ name }}Client () {}
-    {% for function in functions %}
+    {{ name }}ClientIF (const char* address_) : drpc::AsyncClientHandler(address_) {}
+    ~{{ name }}ClientIF () {}
+
+    /* ******** Switch interface for receive message ******** */
+    virtual drpc::Message switch_interface(drpc::Message& msg) {
+        if (msg.empty()) {
+            return {};
+        }
+
+        auto ident = drift::orm::msgpack_unpack<CallIdent>(msg[0]);
+        switch (static_cast<{{ name }}Api>(ident.interface)) {
+
+        /* ******** Response interface ******** */
+        {% for function in reqrep_functions %}
+        case {{ name }}Api::{{ function.ident }}:
+            this->on_result_{{ function.ident }} (drift::orm::msgpack_unpack<{% for output in function.outputs %}{{ output.type }}{% endfor %}>(msg[1]));
+            break;{% endfor %}
+
+        /* ******** Broadcast interface ******** */
+        {% for function in broadcast_functions %}
+        case {{ name }}Api::{{ function.ident }}:
+            this->on_notify_{{ function.ident }}({% for input in function.inputs %}drift::orm::msgpack_unpack<{{ input.type }}>(msg[{{ input.index }} + 1]){% if not input.is_last %}, {% endif %}{% endfor %});
+            break;{% endfor %}
+        default:
+            break;
+        }
+
+        return {};
+    }
+
+    /* ******** Request interface ******** */
+    {% for function in reqrep_functions %}
     // {{ function.comment }}
-    {% for output in function.outputs %}{{ output }}{% endfor %} {{ function.ident }} ({% for input in function.inputs %}{{ input.type }} {{ input.name }}{% if not input.is_last %}, {% endif %}{% endfor %}) {
+    void {{ function.ident }} ({% for input in function.inputs %}{{ input.type }} {{ input.name }}_{% if not input.is_last %}, {% endif %}{% endfor %}) {
         drpc::Message msg;
-        auto head = drpc::msgpack_pack({{ name }}Api::{{ function.ident }});
-        msg.emplace_back(head);
+        CallIdent ident{static_cast<uint8_t>({{ name }}Api::{{ function.ident }}), 0};
+        msg.emplace_back(drift::orm::msgpack_pack(ident));
         {% for input in function.inputs %}
-        msg.emplace_back(drpc::msgpack_pack({{ input.name }}));{% endfor %}
+        msg.emplace_back(drift::orm::msgpack_pack({{ input.name }}_));{% endfor %}
         this->send(std::move(msg));
     }
     {% endfor %}
+    /* ******** Request interface ******** */
+
+    /* ******** Response interface ******** */
+    {% for function in reqrep_functions %}
+    // {{ function.comment }}
+    virtual void on_result_{{function.ident}} ({% for output in function.outputs %}{{ output.type }} {{ output.name }}_ {% endfor %}) = 0;
+    {% endfor %}
+    /* ******** Response interface ******** */
+
+    /* ******** Broadcast interface ******** */
+    {% for function in broadcast_functions %}
+    // {{ function.comment }}
+    virtual void on_notify_{{function.ident}} ({% for input in function.inputs %}{{ input.type }} {{ input.name }}_{% if not input.is_last %}, {% endif %}{% endfor %}) = 0;
+    {% endfor %}
+    /* ******** Broadcast interface ******** */
+
 };
 
 } // namespace {{ scope }}

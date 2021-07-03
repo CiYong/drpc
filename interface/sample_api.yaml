@@ -1,0 +1,17 @@
+sample:
+  scope: drifter
+  reqrep:
+    send_msg:
+      comment: 'Publish player position.'
+      output:
+        result: bool
+      input:
+        account_id: string
+        contact_id: string
+        messages: Message
+  broadcast:
+    update_pos:
+      comment: 'Publish player position.'
+      input:
+        entity_id: string
+        position: vec<float>

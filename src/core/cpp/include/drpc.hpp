@@ -16,38 +16,79 @@
  *
  */
 
-#ifndef __DRPC_HPP__
-#define __DRPC_HPP__
+#ifndef __drpc_hpp__
+#define __drpc_hpp__
 
-#include "pack.hpp"
+#include "dmsgpack.hpp"
 
 namespace drpc {
-
-typedef unsigned char uint8_t;
 using Part = std::vector<uint8_t>;
 using Message = std::deque<Part>;
 
+struct CallIdent {
+    int8_t interface;
+    uint64_t uuid;
+};
+
+template<typename R>
+class CallResult {
+public:
+    CallResult(CallIdent ident) : m_ident(ident) {}
+
+    R get() {
+        return {};
+    }
+
+private:
+    CallIdent m_ident;
+};
+
 class ServerHandler {
 public:
-    virtual void process_message(Message& msg) {
-        this->switch_interface(msg);
+    virtual drpc::Message process_message(drpc::Message& msg) {
+        return this->switch_interface(msg);
     }
-    virtual void switch_interface(Message& msg) = 0;
+    virtual drpc::Message switch_interface(drpc::Message& msg) = 0;
+
+    virtual void on_connected() {}
+    virtual void on_disconnected() {}
+
+    void run_with_blockon(const char* address);
+    void run_with_nonblockon(const char* address);
+
+    void terminate();
+
+    void broadcast(drpc::Message&& msg);
 };
 
 class ClientHandler {
 public:
-    ClientHandler(const std::string& address);
+    ClientHandler(const char* address);
     ~ClientHandler();
 
-    void send(Message&& msg);
+    bool send(drpc::Message&& msg);
     Message recv();
 private:
     void* m_sender;
+};
+
+class AsyncClientHandler : public ServerHandler {
+public:
+    AsyncClientHandler(const char* address);
+    ~AsyncClientHandler();
+
+    void send(drpc::Message&& msg);
+    Message recv();
+private:
+    void* m_inner;
 };
 
 void run(ServerHandler* server, const char* addr);
 
 } // namespace drpc
 
-#endif // __DRPC_HPP__
+using namespace drpc;
+
+DORM_MSGPACK(CallIdent, interface, uuid);
+
+#endif // __drpc_hpp__
