@@ -17,7 +17,7 @@
  */
 
 #include "channel.hpp"
-#include "uuid/uuid.h"
+//#include "uuid/uuid.h"
 
 namespace drpc {
 namespace util {
@@ -44,11 +44,15 @@ std::string to_string(const char* fmt, ...) {
 namespace internal {
 
 std::string unique_inproc_addr() {
+/*
     uuid_t uuid;
     char s[37];
     uuid_generate_random(uuid);
     uuid_unparse(uuid, s);
     return "inproc://" + std::string(s);
+*/
+    static uint64_t sequence_num = 0;
+    return "inproc://" + std::to_string(sequence_num++);
 }
 
 void init_socket(zmq::socket_t& socket, const Config& config, Handler* handler) {

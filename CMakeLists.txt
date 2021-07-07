@@ -288,9 +288,6 @@ else()
                                          ${drpc-pkgconfig} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
       endif()
     endif()
-    if(CMAKE_SYSTEM_NAME MATCHES "QNX")
-      target_link_libraries(libdrpc-static m)
-    endif()
     set_target_properties(
       libdrpc-static PROPERTIES PUBLIC_HEADER "${public_headers}" OUTPUT_NAME "${DRPC_OUTPUT_BASENAME}" PREFIX "lib")
   endif()
@@ -321,12 +318,76 @@ endforeach()
 # -----------------------------------------------------------------------------
 # link options
 
+
+if(MSVC)
+  # set(ZMQ_ROOT "" CACHE PATH "Location of ZeroMQ")
+  set(ZMQ_VERSION_MAJOR 4)
+  set(ZMQ_VERSION_MINOR 3)
+  set(ZMQ_VERSION_MICRO 4)
+  if(CMAKE_CL_64)
+    find_path(
+      ZMQ_ROOT include/zmq.hpp
+      PATHS
+        "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Miru\\ZeroMQ ${ZMQ_VERSION_MAJOR}.${ZMQ_VERSION_MINOR}.${ZMQ_VERSION_MICRO}]"
+      NO_DEFAULT_PATH)
+    message(STATUS "ZeroMQ x64 detected - ${ZMQ_ROOT}")
+  else()
+    find_path(
+      ZMQ_ROOT include/zmq.hpp
+      PATHS
+        "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Miru\\ZeroMQ ${ZMQ_VERSION_MAJOR}.${ZMQ_VERSION_MINOR}.${ZMQ_VERSION_MICRO}]"
+        "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Miru\\ZeroMQ ${ZMQ_VERSION_MAJOR}.${ZMQ_VERSION_MINOR}.${ZMQ_VERSION_MICRO}]"
+        NO_DEFAULT_PATH)
+    message(STATUS "ZeroMQ x86 detected - ${ZMQ_ROOT}")
+  endif()
+  set(ZMQ_INCLUDE_DIRS ${ZMQ_ROOT}/include)
+  set(ZMQ_LIBRARY_DIRS ${ZMQ_ROOT}/lib)
+  set(ZMQ_LIBRARIES
+      optimized
+      libzmq${MSVC_TOOLSET}-mt-${ZMQ_VERSION_MAJOR}_${ZMQ_VERSION_MINOR}_${ZMQ_VERSION_MICRO}.lib debug
+      libzmq${MSVC_TOOLSET}-mt-gd-${ZMQ_VERSION_MAJOR}_${ZMQ_VERSION_MINOR}_${ZMQ_VERSION_MICRO}.lib)
+else()
+
+  # depend ZeroMQ
+  if(NOT ZMQ_PKGCONFIG_NAME)
+    set(ZMQ_PKGCONFIG_NAME "libzmq")
+  endif()
+
+  set(ZMQ_PKGCONFIG_NAME
+      ${ZMQ_PKGCONFIG_NAME}
+      CACHE STRING "Name pkg-config shall use to find ZeroMQ libraries and include paths" FORCE)
+
+  pkg_check_modules(ZMQ ${ZMQ_PKGCONFIG_NAME})
+
+  if(ZMQ_FOUND)
+    #message(STATUS ${ZMQ_PKGCONFIG_NAME}" found")
+    set(pkg_config_names_private "${pkg_config_names_private} ${ZMQ_PKGCONFIG_NAME}")
+  else()
+    message(
+      FATAL_ERROR
+        ${ZMQ_PKGCONFIG_NAME}"  not found. ZeroMQ is searched via `pkg-config ${ZMQ_PKGCONFIG_NAME}`. Consider providing a valid ZMQ_PKGCONFIG_NAME"
+    )
+  endif()
+
+endif()
+
+
 if(BUILD_SHARED)
   target_link_libraries(libdrpc ${CMAKE_THREAD_LIBS_INIT})
-  if(GNUTLS_FOUND)
-    target_link_libraries(libdrpc ${GNUTLS_LIBRARIES})
-  endif()
+
+  include_directories(${ZMQ_INCLUDE_DIRS})
+  link_directories(${ZMQ_LIBRARY_DIRS})
+  target_link_libraries(libdrpc ${ZMQ_LIBRARIES})
 endif()
+
+if(BUILD_STATIC)
+  target_link_libraries(libdrpc-static ${CMAKE_THREAD_LIBS_INIT})
+
+  include_directories(${ZMQ_INCLUDE_DIRS})
+  link_directories(${ZMQ_LIBRARY_DIRS})
+  target_link_libraries(libdrpc-static ${ZMQ_LIBRARIES})
+endif()
+
 
 # -----------------------------------------------------------------------------
 # installer
