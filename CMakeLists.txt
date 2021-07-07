@@ -8,6 +8,10 @@ option(BUILD_STATIC "Whether or not to build the static archive" ON)
 option(WITH_DOCS "Build html docs" OFF)
 option(ENABLE_ANALYSIS "Build with static analysis(make take very long)" OFF)
 
+if(APPLE)
+  option(DRPC_BUILD_FRAMEWORK "Build as OS X framework" OFF)
+endif()
+
 include(CheckIncludeFiles)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
@@ -23,8 +27,8 @@ include(CheckTypeSize)
 include(CMakePackageConfigHelpers)
 
 list(INSERT CMAKE_MODULE_PATH 0 "${CMAKE_CURRENT_SOURCE_DIR}")
-set(ZMQ_CMAKE_MODULES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/Modules)
-list(APPEND CMAKE_MODULE_PATH ${ZMQ_CMAKE_MODULES_DIR})
+set(DRPC_CMAKE_MODULES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/Modules)
+list(APPEND CMAKE_MODULE_PATH ${DRPC_CMAKE_MODULES_DIR})
 
 include(DRPCSupportMacros)
 
@@ -44,6 +48,27 @@ set(DRPC_OUTPUT_BASENAME
     "drpc"
     CACHE STRING "Output drpc library base name")
 
+if (NOT MSVC)
+  if(NOT CMAKE_CXX_FLAGS MATCHES "-std=")
+    # use C++11 by default if supported
+    check_cxx_compiler_flag("-std=gnu++11" COMPILER_SUPPORTS_CXX11)
+    if(COMPILER_SUPPORTS_CXX11)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
+    endif()
+  endif()
+  if(NOT CMAKE_C_FLAGS MATCHES "-std=")
+    check_c_compiler_flag("-std=gnu11" COMPILER_SUPPORTS_C11)
+    if(COMPILER_SUPPORTS_C11)
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu11")
+    else()
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
+    endif()
+  endif()
+endif()
+
+set(pkg_config_libs_private "")
+set(pkg_config_names_private "")
+
 set(prefix ${CMAKE_INSTALL_PREFIX})
 set(exec_prefix ${prefix})
 set(libdir ${prefix}/lib)
@@ -51,6 +76,25 @@ set(includedir ${prefix}/include)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/libdrpc.pc.in ${CMAKE_CURRENT_BINARY_DIR}/libdrpc.pc @ONLY)
 set(drpc-pkgconfig ${CMAKE_CURRENT_BINARY_DIR}/libdrpc.pc)
+
+if(NOT DRPC_BUILD_FRAMEWORK)
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libdrpc.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+endif()
+
+
+if(MSVC)
+  if(CMAKE_CL_64)
+    set(nsis-template ${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/NSIS.template64.in)
+  else()
+    set(nsis-template ${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/NSIS.template32.in)
+  endif()
+
+  add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/NSIS.template.in
+    COMMAND ${CMAKE_COMMAND} ARGS -E copy ${nsis-template} ${CMAKE_CURRENT_BINARY_DIR}/NSIS.template.in
+    DEPENDS ${nsis-template})
+endif()
+
 
 set(SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -150,24 +194,6 @@ foreach(source ${cxx-sources})
   list(APPEND sources ${CMAKE_CURRENT_SOURCE_DIR}/src/core/cpp/src/${source})
 endforeach()
 
-# check c++ version.
-if (NOT MSVC)
-  if(NOT CMAKE_CXX_FLAGS MATCHES "-std=")
-    # use C++11 by default if supported
-    check_cxx_compiler_flag("-std=gnu++11" COMPILER_SUPPORTS_CXX11)
-    if(COMPILER_SUPPORTS_CXX11)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
-    endif()
-  endif()
-  if(NOT CMAKE_C_FLAGS MATCHES "-std=")
-    check_c_compiler_flag("-std=gnu11" COMPILER_SUPPORTS_C11)
-    if(COMPILER_SUPPORTS_C11)
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu11")
-    else()
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
-    endif()
-  endif()
-endif()
 
 
 # -----------------------------------------------------------------------------
@@ -303,7 +329,7 @@ if(BUILD_SHARED)
 endif()
 
 # -----------------------------------------------------------------------------
-# install directories
+# installer
 
 if(MSVC AND (BUILD_SHARED OR BUILD_STATIC))
   install(
@@ -342,7 +368,4 @@ elseif(BUILD_SHARED OR BUILD_STATIC)
     FRAMEWORK DESTINATION "Library/Frameworks"
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 endif()
-
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libdrpc.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
-
 
