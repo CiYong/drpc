@@ -1,0 +1,5 @@
+macro (drpc_set_with_default var value)
+  if (NOT ${var})
+    set(${var} "${value}")
+  endif ()
+endmacro ()

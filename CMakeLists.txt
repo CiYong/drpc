@@ -22,6 +22,12 @@ include(GNUInstallDirs)
 include(CheckTypeSize)
 include(CMakePackageConfigHelpers)
 
+list(INSERT CMAKE_MODULE_PATH 0 "${CMAKE_CURRENT_SOURCE_DIR}")
+set(ZMQ_CMAKE_MODULES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/Modules)
+list(APPEND CMAKE_MODULE_PATH ${ZMQ_CMAKE_MODULES_DIR})
+
+include(DRPCSupportMacros)
+
 find_package(PkgConfig)
 find_package(Threads)
 
