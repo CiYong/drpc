@@ -110,7 +110,7 @@ if(MSVC)
     set(MSVC_TOOLSET "")
   endif()
 else()
-  zmq_check_cxx_flag_prepend("-Wall")
+  #drpc_check_cxx_flag_prepend("-Wall")
 endif()
 
 set(SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -354,10 +354,12 @@ else()
     else()
         if (CMAKE_GENERATOR STREQUAL "Xcode")
            add_library(libdrpc SHARED ${sources} ${public_headers} ${html-docs} ${readme-docs}
-                                     ${drpc-pkgconfig} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+                                     ${drpc-pkgconfig})
+                                     #${drpc-pkgconfig} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
         else()
            add_library(libdrpc SHARED $<TARGET_OBJECTS:objects> ${public_headers} ${html-docs} ${readme-docs}
-                                     ${drpc-pkgconfig} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+                                     ${drpc-pkgconfig})
+                                     #${drpc-pkgconfig} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
         endif()
     endif()
     set_target_properties(
@@ -367,15 +369,17 @@ else()
 
   if(BUILD_STATIC)
     if(MINGW)
-      add_library(libdrpc-static STATIC ${sources} ${public_headers} ${html-docs} ${readme-docs} ${drpc-pkgconfig}
-                                       ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+      add_library(libdrpc-static STATIC ${sources} ${public_headers} ${html-docs} ${readme-docs} ${drpc-pkgconfig})
+                                       #${CMAKE_CURRENT_BINARY_DIR}/version.rc)
     else()
       if (CMAKE_GENERATOR STREQUAL "Xcode")
         add_library(libdrpc-static STATIC ${sources} ${public_headers} ${html-docs} ${readme-docs}
-                                         ${drpc-pkgconfig} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+                                         ${drpc-pkgconfig})
+                                         #${drpc-pkgconfig} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
       else()
         add_library(libdrpc-static STATIC $<TARGET_OBJECTS:objects> ${public_headers} ${html-docs} ${readme-docs}
-                                         ${drpc-pkgconfig} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+                                         ${drpc-pkgconfig})
+                                         #${drpc-pkgconfig} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
       endif()
     endif()
     set_target_properties(
