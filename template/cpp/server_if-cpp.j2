@@ -1,0 +1,57 @@
+#include "{{ interface_name }}_server_if.hpp"
+#include "{{ interface_name }}_data_orm.hpp"
+
+{% if scope != "" %}
+namespace {{ scope }} {
+{% endif %}
+
+{{ name }}ServerIF::{{ name }}ServerIF () {
+}
+
+{{ name }}ServerIF::~{{ name }}ServerIF () {
+}
+
+// Switch interface for receive message.
+drpc::Message {{ name }}ServerIF::switch_interface(drpc::Message& msg) {
+    if (msg.empty()) {
+        return {};
+    }
+
+    drpc::Part result;
+
+    auto part = msg[0];
+    auto ident = drpc::unpackCallIdent(std::move(part));
+    switch (static_cast<{{ name }}Api>(ident.interface)) {
+    {% for function in reqrep_functions %}
+    case {{ name }}Api::{{ function.ident }}:
+        result = drift::orm::msgpack_pack(this->on_{{ function.ident }}({% for input in function.inputs %}
+                                                drift::orm::msgpack_unpack<{{ input.type }}>(msg[{{ input.index }} + 1]){% if not input.is_last %}, {% endif %}{% endfor %}));
+        break;{% endfor %}
+    default:
+        break;
+    }
+
+    return {msg[0], std::move(result)};
+}
+
+const char* {{ name }}ServerIF::interface_version() {
+    return "{{ version }}";
+}
+
+/******** Broadcast interface ********/
+{% for function in broadcast_functions %}
+// {{ function.comment }}
+void {{ name }}ServerIF::{{ function.ident }} ({% for input in function.inputs %}{{ input.type }} {{ input.name }}_{% if not input.is_last %}, {% endif %}{% endfor %}) {
+    drpc::Message msg;
+    drpc::CallIdent ident{static_cast<uint8_t>({{ name }}Api::{{ function.ident }}), 0};
+    msg.emplace_back(drpc::packCallIdent(std::move(ident)));
+    {% for input in function.inputs %}
+    msg.emplace_back(drift::orm::msgpack_pack({{ input.name }}_));{% endfor %}
+
+    this->broadcast(std::move(msg));
+}
+{% endfor %}
+
+{% if scope != "" %}
+} // namespace {{ scope }}
+{% endif %}

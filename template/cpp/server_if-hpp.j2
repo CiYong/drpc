@@ -1,0 +1,50 @@
+{% if scope != "" %}
+#ifndef __{{ scope }}_{{ interface_name }}_server_if_hpp__
+#define __{{ scope }}_{{ interface_name }}_server_if_hpp__
+{% else %}
+#ifndef __{{ interface_name }}_server_if_hpp__
+#define __{{ interface_name }}_server_if_hpp__
+{% endif %}
+
+#include "drpc.hpp"
+#include "{{ interface_name }}_data.hpp"
+
+{% if scope != "" %}
+namespace {{ scope }} {
+{% endif %}
+
+class {{ name }}ServerIF : public drpc::ServerHandler
+{
+public:
+    {{ name }}ServerIF ();
+    ~{{ name }}ServerIF ();
+
+    // Switch interface for receive message.
+    virtual drpc::Message switch_interface(drpc::Message& msg) override final;
+
+    const char* interface_version();
+
+    /******** Request/Response interface ********/
+    {% for function in reqrep_functions %}
+    // {{ function.comment }}
+    virtual {% for output in function.outputs %}{{ output.type }}{% endfor %} on_{{function.ident}} ({% for input in function.inputs %}{{ input.type }} {{ input.name }}_{% if not input.is_last %}, {% endif %}{% endfor %}) {
+        // No implement.
+    }
+    {% endfor %}
+
+    /******** Broadcast interface ********/
+    {% for function in broadcast_functions %}
+    // {{ function.comment }}
+    virtual void {{ function.ident }} ({% for input in function.inputs %}{{ input.type }} {{ input.name }}_{% if not input.is_last %}, {% endif %}{% endfor %}) final;
+    {% endfor %}
+};
+
+{% if scope != "" %}
+} // namespace {{ scope }}
+{% endif %}
+
+{% if scope != "" %}
+#endif // __{{ scope }}_{{ interface_name }}_server_if_hpp__
+{% else %}
+#endif // __{{ scope }}_{{ interface_name }}_server_if_hpp__
+{% endif %}

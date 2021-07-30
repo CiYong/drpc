@@ -1,0 +1,56 @@
+{% if scope != "" %}
+#ifndef __{{ scope }}_{{ interface_name }}_data_hpp__
+#define __{{ scope }}_{{ interface_name }}_data_hpp__
+{% else %}
+#ifndef __{{ interface_name }}_data_hpp__
+#define __{{ interface_name }}_data_hpp__
+{% endif %}
+
+#include <string>
+
+/*  Version macros for compile-time API version detection                     */
+#define {{ interface_name.upper() }}_VERSION_MAJOR {{ version_major }}
+#define {{ interface_name.upper() }}_VERSION_MINOR {{ version_minor }}
+#define {{ interface_name.upper() }}_VERSION_PATCH {{ version_patch }}
+
+#define {{ interface_name.upper() }}_MAKE_VERSION(major, minor, patch)                                  \
+    ((major) *10000 + (minor) *100 + (patch))
+#define {{ interface_name.upper() }}_VERSION                                                            \
+    {{ interface_name.upper() }}_MAKE_VERSION ({{ interface_name.upper() }}_VERSION_MAJOR, {{ interface_name.upper() }}_VERSION_MINOR, {{ interface_name.upper() }}_VERSION_PATCH)
+
+{% if scope != "" %}
+namespace {{ scope }} {
+{% endif %}
+
+/**************** API defination ****************/
+enum class {{ name }}Api {
+{% for function in functions %}    {{function.ident}} = {{ function.id }}, // {{ function.comment }}
+{% endfor %}
+};
+
+/**************** Enumurators defination ****************/
+{% for enumurator in data_types.enums %}
+enum class {{ enumurator.ident }} {
+{% for member in enumurator.members %}    {{ member.name }} = {{ member.type }},
+{% endfor %}
+};
+{% endfor %}
+
+/**************** Struct defination ****************/
+{% for data_struct in data_types.structs %}
+// {{ data_struct.ident }}
+struct {{ data_struct.ident }} {
+    {% for member in data_struct.members %} {{ member.type }} {{ member.name }};
+    {% endfor %}
+};
+{% endfor %}
+
+{% if scope != "" %}
+} // namespace {{ scope }}
+{% endif %}
+
+{% if scope != "" %}
+#endif // __{{ scope }}_{{ interface_name }}_data_hpp__
+{% else %}
+#endif // __{{ scope }}_{{ interface_name }}_data_hpp__
+{% endif %}

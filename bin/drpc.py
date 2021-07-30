@@ -2,6 +2,7 @@
 # -*-coding:utf-8 -*-
 
 import os
+import sys
 import argparse
 from generator import DRPCGenerator
 import utils
@@ -15,11 +16,17 @@ def parse_args():
         parser.add_argument("-f", "--file", help="interface file")
         parser.add_argument("-i", "--interface", help="interface name")
         parser.add_argument("-l", "--language", help="generate interface for language")
+        parser.add_argument("-c", "--clean", help="clean output", action="store_true")
         parser.add_argument("-v", "--version", help="version info", action="store_true")
         # exptypegroup = parser.add_mutually_exclusive_group()
         # exptypegroup.add_argument("-r", "--remote", help="remote mode", action="store_true")
         # exptypegroup.add_argument("-l", "--local", help="local mode", action="store_true")
         args = parser.parse_args()
+
+        if args.clean:
+            utils.remove_all(os.getcwd() + '/output')
+            print("[DRPC] output clean done.")
+            sys.exit()
 
         if args.file:
             split_file_name = args.file.split('.yaml')[0].split('_')
@@ -37,7 +44,7 @@ def parse_args():
             args.language = "all"
 
         if args.version:
-            print("drpc version " + utils.version)
+            print("[DRPC] version " + utils.version)
 
         return args
 
@@ -68,9 +75,9 @@ def main():
     # 6. generate interface file.
     generator.generate(args, apis, templates)
     #
-    generator.install_am(apis)
+    #generator.install_am(apis)
     #
-    generator.make()
+    #generator.make()
 
     print("[DRPC] <" + args.interface + "> interface file was generated in output directory.")
 

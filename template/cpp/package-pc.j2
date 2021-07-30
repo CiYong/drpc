@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: lib{{interface_name}}
+Description: {{ interface_name }} c++ library
+Version: @VERSION@
+Libs: -L${libdir} -l{{ interface_name }}
+Libs.private: -lstdc++ @pkg_config_libs_private@
+Requires.private: @pkg_config_names_private@
+Cflags: -I${includedir} @pkg_config_defines@

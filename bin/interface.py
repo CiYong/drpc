@@ -55,6 +55,7 @@ class Function:
 class Api:
     def __init__(self):
         self.interface_name = None
+        self.version = None
         self.name = None
         self.type = None
         self.scope = None
@@ -66,15 +67,23 @@ class Apis:
         self.inner = []
 
         for api_name, api_attr in apis_.items():
-            scope = ''
             api_id_offset = 0
+
+            version = ''
+            scope = ''
+
             for item_key, item_value in api_attr.items():
                 if item_key == 'scope':
-                    scope = item_key
+                    scope = item_value
+                    continue
+
+                if item_key == 'version':
+                    version = item_value
                     continue
 
                 api = Api()
                 api.interface_name = interface_name_
+                api.version = version
                 api.scope = scope
                 api.name = api_name
 
@@ -167,7 +176,8 @@ class InterfaceTemplate:
         return
 
     def render_api(self, interface_, customize_types_):
-        self.__content = self.__template.render(scope=interface_.scope,
+        self.__content = self.__template.render(version=interface_.version,
+                                                scope=interface_.scope,
                                                 interface_name=interface_.interface_name,
                                                 name=interface_.name,
                                                 functions=interface_.functions,
@@ -175,7 +185,13 @@ class InterfaceTemplate:
         return self.__content
 
     def render_main(self, interface_, reqrep_functions_, broadcast_functions_, customize_types_):
-        self.__content = self.__template.render(scope=interface_.scope,
+        version_major, version_minor, version_patch = interface_.version.split('.')
+
+        self.__content = self.__template.render(version=interface_.version,
+                                                version_major=version_major,
+                                                version_minor=version_minor,
+                                                version_patch=version_patch,
+                                                scope=interface_.scope,
                                                 interface_name=interface_.interface_name,
                                                 name=interface_.name,
                                                 reqrep_functions=reqrep_functions_,
@@ -184,7 +200,13 @@ class InterfaceTemplate:
         return self.__content
 
     def render_data(self, interface_, functions_, customize_types_):
-        self.__content = self.__template.render(scope=interface_.scope,
+        version_major, version_minor, version_patch = interface_.version.split('.')
+
+        self.__content = self.__template.render(version=interface_.version,
+                                                version_major=version_major,
+                                                version_minor=version_minor,
+                                                version_patch=version_patch,
+                                                scope=interface_.scope,
                                                 interface_name=interface_.interface_name,
                                                 name=interface_.name,
                                                 functions=functions_,
@@ -196,16 +218,43 @@ class InterfaceTemplate:
         #     suffix = 'hpp'
         #
         interface_path = path_ + '/' + interface_name_
-        if not os.path.exists(path_):
-            os.mkdir(path_)
 
-        if not os.path.exists(interface_path):
-            os.mkdir(interface_path)
+        output_path = ''
+        output_file = ''
 
-        header = utils.declration + "// DRPC version is " + utils.version + ".\n\n"
+        header = utils.declration + "// DRPC version is " + utils.version + ".\n"
+        header = header + "// " + interface_name_ + "interface version is " + utils.version + ".\n\n"
 
-        suffix = "hpp"
-        file = open(interface_path + '/' + interface_name_ + '_' + self.__template_file + '.' + suffix, "w+")
-        file.write(header + self.__content)
+        file_name, suffix = self.__template_file.split('-')
+
+        if file_name == "CMakeLists" or file_name == "am":
+            output_path = interface_path
+            output_file = file_name
+        elif "Version" in file_name or "SupportMacros" in file_name or "package" in file_name:
+            output_path = interface_path
+            output_file = file_name
+        elif suffix == "hpp":
+            output_path = interface_path + '/include'
+            output_file = interface_name_ + '_' + file_name
+        elif suffix == "cpp":
+            output_path = interface_path + '/src'
+            output_file = interface_name_ + '_' + file_name
+        else:
+            return
+
+        if '/' in file_name:
+            paths = file_name.split('/')
+            output_file = paths.pop(-1)
+            output_path = output_path + '/' + '/'.join(paths)
+
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+
+        file = open(output_path + '/' + output_file + '.' + suffix, "w+")
+
+        if suffix == "hpp" or suffix == "cpp":
+            file.write(header)
+
+        file.write(self.__content)
         file.close()
         return

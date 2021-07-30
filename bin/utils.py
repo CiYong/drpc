@@ -1,11 +1,12 @@
 #!/usr/bin/python3
 # -*-coding:utf-8 -*-
 
+import os
 import sys
 import yaml
 from collections import OrderedDict
 
-declration = "// Automatically generated file by DRPC; DO NOT EDIT.\n"
+declration = "// Automatically generated file by DRPC. Do not edit.\n"
 version = '0.1.0'
 
 
@@ -39,6 +40,55 @@ def ordered_yaml_dump(data, stream=None, dumper=yaml.SafeDumper, **kwds):
 
     OrderedDumper.add_representer(OrderedDict, _dict_representer)
     return yaml.dump(data, stream, OrderedDumper, **kwds)
+
+
+def remove_all(path):
+
+    if not os.path.exists(path):
+        return
+
+    ls = os.listdir(path)
+    for i in ls:
+        c_path = os.path.join(path, i)
+        if os.path.isdir(c_path):
+            remove_all(c_path)
+            if os.path.exists(c_path):
+                os.removedirs(c_path)
+        else:
+            os.remove(c_path)
+
+    return
+
+
+def copy_nsis(path):
+    dest_path = path + '/builds/cmake'
+    if not os.path.exists(dest_path):
+        os.makedirs(dest_path)
+
+    
+    src_path = os.getcwd() + '/template/cpp/builds/cmake'
+    nsis_file32 = 'NSIS.template32.in'
+    nsis_file64 = 'NSIS.template64.in'
+    
+    # NSIS32
+    file = open(src_path + '/' + nsis_file32, "w+")
+    content = file.read()
+    file.close()
+
+    file = open(dest_path + '/' + nsis_file32, "w+")
+    file.write(content)
+    file.close()
+
+    # NSIS64
+    file = open(src_path + '/' + nsis_file64, "w+")
+    content = file.read()
+    file.close()
+
+    file = open(dest_path + '/' + nsis_file64, "w+")
+    file.write(content)
+    file.close()
+
+    return
 
 
 class FastDict:

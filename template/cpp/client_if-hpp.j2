@@ -1,0 +1,60 @@
+{% if scope != "" %}
+#ifndef __{{ scope }}_{{ interface_name }}_client_if_hpp__
+#define __{{ scope }}_{{ interface_name }}_client_if_hpp__
+{% else %}
+#ifndef __{{ interface_name }}_client_if_hpp__
+#define __{{ interface_name }}_client_if_hpp__
+{% endif %}
+
+#include "drpc.hpp"
+#include "{{ interface_name }}_data.hpp"
+
+{% if scope != "" %}
+namespace {{ scope }} {
+{% endif %}
+
+class {{ name }}ClientIF : public drpc::AsyncClientHandler
+{
+public:
+    // {{ name }}ClientIF (const char* address_) : drpc::AsyncClientHandler(address_) {}
+    {{ name }}ClientIF (const char* address_);
+    ~{{ name }}ClientIF ();
+
+    /* ******** Switch interface for receive message ******** */
+    virtual drpc::Message switch_interface(drpc::Message& msg) override final;
+
+    const char* interface_version();
+
+    /* ******** Request interface ******** */
+    {% for function in reqrep_functions %}
+    // {{ function.comment }}
+    virtual void {{ function.ident }} ({% for input in function.inputs %}{{ input.type }} {{ input.name }}_{% if not input.is_last %}, {% endif %}{% endfor %}) final;
+    {% endfor %}
+
+    /* ******** Response interface ******** */
+    {% for function in reqrep_functions %}
+    // {{ function.comment }}
+    virtual void on_result_{{function.ident}} ({% for output in function.outputs %}{{ output.type }} {{ output.name }}_ {% endfor %}) {
+        // No implement.
+    }
+    {% endfor %}
+
+    /* ******** Broadcast interface ******** */
+    {% for function in broadcast_functions %}
+    // {{ function.comment }}
+    virtual void on_notify_{{function.ident}} ({% for input in function.inputs %}{{ input.type }} {{ input.name }}_{% if not input.is_last %}, {% endif %}{% endfor %}) {
+        // No implement.
+    }
+    {% endfor %}
+
+};
+
+{% if scope != "" %}
+} // namespace {{ scope }}
+{% endif %}
+
+{% if scope != "" %}
+#endif // __{{ scope }}_{{ interface_name }}_client_if_hpp__
+{% else %}
+#endif // __{{ interface_name }}_client_if_hpp__
+{% endif %}

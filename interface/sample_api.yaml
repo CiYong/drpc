@@ -1,4 +1,5 @@
 sample:
+  version: 0.1.0
   scope: drifter
   reqrep:
     send_msg:

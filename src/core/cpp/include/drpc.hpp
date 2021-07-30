@@ -19,7 +19,19 @@
 #ifndef __drpc_hpp__
 #define __drpc_hpp__
 
-#include "dmsgpack.hpp"
+#include <cstdint>
+#include <vector>
+#include <deque>
+
+/*  Version macros for compile-time API version detection                     */
+#define DRPC_VERSION_MAJOR 0
+#define DRPC_VERSION_MINOR 1
+#define DRPC_VERSION_PATCH 0
+
+#define DRPC_MAKE_VERSION(major, minor, patch)                                  \
+    ((major) *10000 + (minor) *100 + (patch))
+#define DRPC_VERSION                                                            \
+    DRPC_MAKE_VERSION (DRPC_VERSION_MAJOR, DRPC_VERSION_MINOR, DRPC_VERSION_PATCH)
 
 namespace drpc {
 using Part = std::vector<uint8_t>;
@@ -85,10 +97,9 @@ private:
 
 void run(ServerHandler* server, const char* addr);
 
+Part packCallIdent(CallIdent&& ident_);
+CallIdent unpackCallIdent(Part&& part_);
+
 } // namespace drpc
-
-using namespace drpc;
-
-DORM_MSGPACK(CallIdent, interface, uuid);
 
 #endif // __drpc_hpp__

@@ -17,7 +17,9 @@
  */
 
 #include "channel.hpp"
-#include "uuid/uuid.h"
+//#include "uuid/uuid.h"
+
+#include <iostream>
 
 namespace drpc {
 namespace util {
@@ -44,11 +46,15 @@ std::string to_string(const char* fmt, ...) {
 namespace internal {
 
 std::string unique_inproc_addr() {
+/*
     uuid_t uuid;
     char s[37];
     uuid_generate_random(uuid);
     uuid_unparse(uuid, s);
     return "inproc://" + std::string(s);
+*/
+    static uint64_t sequence_num = 0;
+    return "inproc://" + std::to_string(sequence_num++);
 }
 
 void init_socket(zmq::socket_t& socket, const Config& config, Handler* handler) {
@@ -171,10 +177,6 @@ Receiver::~Receiver() {
     }
 }
 
-zmq::socket_t& Receiver::socket() {
-    return m_socket;
-}
-
 zmq::context_t& Receiver::context() {
     return m_context;
 }
@@ -251,7 +253,7 @@ Bidirectional::Bidirectional(const internal::Config& config, ServerHandler* serv
         std::cerr << "seq_check not supported in Bidirectional" << std::endl;
     }
 
-    m_handler->set_bichannel(this);
+    m_handler->set_channel(this);
 
     internal::init_socket(m_socket, m_config, m_handler);
     init_forward();
@@ -496,6 +498,141 @@ std::string Bidirectional::to_id(const zmq::message_t& data) {
 
 bool Bidirectional::check_conn() const {
     return m_checkconn && m_config.socktype == zmq::socket_type::router;
+}
+
+// Internal channel for thread communication.
+InternalSender::InternalSender(const internal::Config& config, zmq::socket_t&& socket)
+    : m_config(config),
+      m_socket(std::move(socket)),
+      m_handler(new ErrorHandler) {
+}
+
+InternalSender::~InternalSender() {
+    delete m_handler;
+    m_handler = NULL;
+}
+
+void InternalSender::send(Message&& msg) {
+    if (m_config.seq_check) {
+        auto n = number();
+        auto b = reinterpret_cast<uint8_t*>(&n);
+        msg.emplace_back(b, b + sizeof(n));
+    }
+    std::lock_guard<std::mutex> lock(m_mutex);
+    internal::send(m_socket, std::move(msg), m_handler);
+}
+
+zmq::socket_t& InternalSender::socket() {
+    return m_socket;
+}
+
+uint64_t InternalSender::number() {
+    return m_seqno += 1;
+}
+
+InternalReceiver::InternalReceiver(const internal::Config& config, zmq::context_t* context)
+    : m_config(config),
+      m_context(context),
+      m_socket(*m_context, ZMQ_PULL),
+      m_handler(nullptr) {
+    //internal::init_socket(m_socket, config, m_handler);
+    m_socket.connect(m_config.addr);
+    start();
+}
+
+InternalReceiver::~InternalReceiver() {
+    if (m_thread.joinable()) {
+        m_running = false;
+        m_thread.join();
+    }
+}
+
+zmq::context_t& InternalReceiver::context() {
+    return *m_context;
+}
+
+void InternalReceiver::start() {
+    m_running = true;
+    m_thread = std::thread([this] {
+        zmq::pollitem_t item;
+        item.socket = static_cast<void*>(m_socket);
+        item.events = ZMQ_POLLIN | ZMQ_POLLERR;
+
+        auto last_recv = std::chrono::system_clock::now();
+
+        while (m_running) {
+            try {
+                if (zmq::poll(&item, 1, 200) < 0) {
+                    util::error(m_handler, -1, "ZMQ error on poll");
+                    break;
+                }
+            } catch (zmq::error_t& e) {
+                if (e.num() == EINTR) {
+                    continue;
+                }
+                util::error(m_handler, e.num(), "ZMQ error on poll: %s", e.what());
+                break;
+            }
+
+            if ( m_config.hb_timeout && std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() -last_recv).count() > m_config.hb_timeout) {
+                util::error(m_handler, -1, "Heartbeat timed out");
+                last_recv = std::chrono::system_clock::now();
+            }
+
+            if (item.revents & ZMQ_POLLIN) {
+                try {
+                    auto msg = internal::recv(m_socket);
+                    if (msg.empty()) {
+                        continue;
+                    }
+
+                    last_recv = std::chrono::system_clock::now();
+                    if (m_config.seq_check) {
+                        auto num = msg.back();
+                        msg.pop_back();
+                        seq_check(*reinterpret_cast<uint64_t*>(num.data()));
+                    }
+
+                    m_handler->dispatch(std::move(msg));
+                } catch (std::exception& e) {
+                    util::error(m_handler, -1, "Uncaught exception on receiving: %s", e.what());
+                    break;
+                }
+            }
+        }
+    });
+}
+
+void InternalReceiver::seq_check(uint64_t n) {
+    if (m_seqno && n != m_seqno) {
+        util::error(m_handler, -1, "Gap detected: (Expected: %ld, Actual: %ld)", m_seqno, n);
+    }
+    m_seqno = n + 1;
+}
+
+
+ChannelPair build_internal_channel() {
+    auto addr = internal::unique_inproc_addr();
+    auto sender_config = internal::Config::create(addr, zmq::socket_type::push, true);
+    auto receiver_config = internal::Config::create(addr, zmq::socket_type::pull, false);
+
+    auto context = new zmq::context_t{1};
+    zmq::socket_t tx(*context, ZMQ_PUSH);
+    zmq::socket_t rx(*context, ZMQ_PULL);
+
+    rx.set(zmq::sockopt::rcvhwm, receiver_config.recvhwm);
+    rx.set(zmq::sockopt::rcvbuf, receiver_config.recvbuf);
+    rx.bind(addr);
+
+    rx.set(zmq::sockopt::sndhwm, receiver_config.sendhwm);
+    rx.set(zmq::sockopt::sndbuf, receiver_config.sendbuf);
+    rx.set(zmq::sockopt::linger, receiver_config.linger);
+    tx.connect(addr);
+
+    auto sender = new InternalSender(sender_config, std::move(tx));
+    auto receiver = new InternalReceiver(receiver_config, context);
+
+    return ChannelPair{sender, receiver};
 }
 
 

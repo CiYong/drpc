@@ -32,7 +32,7 @@
 
 #include "zmq.hpp"
 #include "drpc.hpp"
-#include "handler.hpp"
+#include "router.hpp"
 
 namespace drpc {
 
@@ -156,8 +156,52 @@ private:
     bool m_checkconn;
     std::unordered_set<std::string> m_clients;
     std::chrono::system_clock::time_point m_last_check;
-    Router* m_handler;
+    Handler* m_handler;
 };
+
+class InternalSender {
+public:
+    InternalSender(const internal::Config& config, zmq::socket_t&& socket);
+    ~InternalSender();
+    void send(Message&& msg);
+    zmq::socket_t& socket();
+
+private:
+    uint64_t number();
+
+    internal::Config m_config;
+    std::mutex m_mutex;
+    zmq::socket_t m_socket;
+    uint64_t m_seqno;
+    Handler* m_handler;
+};
+
+class InternalReceiver {
+public:
+    InternalReceiver(const internal::Config& config, zmq::context_t* context);
+    ~InternalReceiver();
+    zmq::socket_t& socket();
+    zmq::context_t& context();
+
+private:
+    void start();
+    void seq_check(uint64_t n);
+
+    internal::Config m_config;
+    zmq::context_t* m_context;
+    zmq::socket_t m_socket;
+    std::thread m_thread;
+    bool m_running;
+    uint64_t m_seqno;
+    Handler* m_handler;
+};
+
+struct ChannelPair {
+    InternalSender* sender;
+    InternalReceiver* receiver;
+};
+
+ChannelPair build_internal_channel();
 
 } // namespace drpc
 

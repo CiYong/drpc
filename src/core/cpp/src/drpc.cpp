@@ -18,8 +18,10 @@
 
 #include "drpc.hpp"
 #include "channel.hpp"
+#include "dorm.hpp"
 
-#include <iostream>
+using namespace drpc;
+DORM_MSGPACK(CallIdent, interface, uuid);
 
 namespace drpc {
 
@@ -75,26 +77,6 @@ Message ClientHandler::recv() {
     return static_cast<drpc::Sender*>(m_sender)->recv();
 }
 
-/*
-// bi client
-class BiClient : public ServerHandler {
-public:
-    BiClient(drpc::AsyncClientHandler& client_) : m_client(client_) {}
-    virtual drpc::Part switch_interface(drpc::Message& msg) {
-         if (!msg.empty()) {
-             std::cout << "[drpc client] recv=" << std::string(msg[0].data(), msg[0].data() + msg[0].size()) << std::endl;
-             m_queue.emplace_back(std::move(msg));
-         }
-         
-         return {};
-    }
-
-private:
-    drpc::AsyncClientHandler m_client;
-    std::deque<drpc::Message> m_queue;
-};
-*/
-
 AsyncClientHandler::AsyncClientHandler(const char* address)
     : m_inner(nullptr)  {
 
@@ -119,6 +101,14 @@ void AsyncClientHandler::send(Message&& msg) {
 
 Message AsyncClientHandler::recv() {
     return {};
+}
+
+Part packCallIdent(CallIdent&& ident_) {
+    return drift::orm::msgpack_pack(ident_);
+}
+
+CallIdent unpackCallIdent(Part&& part_) {
+    return drift::orm::msgpack_unpack<CallIdent>(part_);
 }
 
 } // namespace drpc

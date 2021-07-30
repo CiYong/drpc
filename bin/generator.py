@@ -2,6 +2,7 @@
 # -*-coding:utf-8 -*-
 
 import os
+import platform
 from collections import OrderedDict
 from data_types import BasicTypes, Types
 from interface import InterfaceTemplate, Api, Apis, Function
@@ -45,26 +46,24 @@ class DRPCGenerator:
     @staticmethod
     def load_template(args):
         template_path = "template"
-        main_template = ["data", "client", "server"]
+        main_template = ["data-hpp",
+                         "data_orm-hpp",
+                         "client_if-hpp",
+                         "client_if-cpp",
+                         "server_if-hpp",
+                         "server_if-cpp",
+                         "CMakeLists-txt",
+                         "package-pc",
+                         "builds/cmake/Modules/SupportMacros-cmake",
+                         "builds/cmake/Modules/Version-cmake"]
         api_template = ["reqrep", "broadcast"]
 
         templates = OrderedDict()
-        # api_client_templates = OrderedDict()
-        # api_server_templates = OrderedDict()
 
         for file in main_template:
             template = InterfaceTemplate()
             template.load_template(template_path, args.language, file)
             templates[file] = template
-
-        # for file in api_template:
-        #     client_template = InterfaceTemplate()
-        #     client_template.load_template(template_path, args.language, file + "_client_interface")
-        #     api_client_templates[file] = client_template
-        #
-        #     server_template = InterfaceTemplate()
-        #     server_template.load_template(template_path, args.language, file + "_server_interface")
-        #     api_server_templates[file] = server_template
 
         return templates
 
@@ -83,7 +82,7 @@ class DRPCGenerator:
                 broadcast_functions = api.functions
 
         for type, template in templates_.items():
-            if type == "data":
+            if type == "data-hpp" or type == "data_orm-hpp":
                 template.render_data(apis_[0], all_functions, self.customize_types)
             else:
                 template.render_main(apis_[0], reqrep_functions, broadcast_functions, self.customize_types)
@@ -96,6 +95,9 @@ class DRPCGenerator:
 
         for type, template in templates_.items():
             template.generate(output_path, args.language, apis_[0].interface_name)
+
+        if platform.system() == 'Windows':
+            utils.copy_nsis(output_path + '/' + apis_[0].interface_name)
 
         return
 

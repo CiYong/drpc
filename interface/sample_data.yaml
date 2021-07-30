@@ -25,6 +25,11 @@ Comission:
         quantity: u64
         buy_sell: BuySell
 
+Message:
+    type: struct
+    members:
+        inner: vec<Order>
+
 Orders:
     type: template
     members:

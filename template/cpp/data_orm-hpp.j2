@@ -1,0 +1,35 @@
+{% if scope != "" %}
+#ifndef __{{ scope }}_{{ interface_name }}_data_orm_hpp__
+#define __{{ scope }}_{{ interface_name }}_data_orm_hpp__
+{% else %}
+#ifndef __{{ interface_name }}_data_orm_hpp__
+#define __{{ interface_name }}_data_orm_hpp__
+{% endif %}
+
+#include "{{ interface_name }}_data.hpp"
+#include "dorm.hpp"
+
+{% if scope != "" %}
+using namespace {{ scope }};
+{% endif %}
+
+/**************** API serialize/deserialize ****************/
+MSGPACK_ADD_ENUM({{ name }}Api);
+
+/**************** Enumurators serialize/deserialize ****************/
+{% for enumurator in data_types.enums %}
+MSGPACK_ADD_ENUM({{ enumurator.ident }});{% endfor %}
+
+/**************** Struct serialize/deserialize ****************/
+{% for data_struct in data_types.structs %}
+DORM_MSGPACK({{data_struct.ident}},
+{% for member in data_struct.members %}             {{ member.name }}{% if not member.is_last %},{% endif %}
+{% endfor %})
+{% endfor %}
+
+
+{% if scope != "" %}
+#endif // __{{ scope }}_{{ interface_name }}_data_orm_hpp__
+{% else %}
+#endif // __{{ interface_name }}_data_orm_hpp__
+{% endif %}
