@@ -157,33 +157,33 @@ if(WIN32)
     endif(CMAKE_SYSTEM_VERSION)
   endmacro(get_WIN32_WINNT)
 
-  get_win32_winnt(${MODULE_NAME}_WIN32_WINNT_DEFAULT)
-  message(STATUS "Detected _WIN32_WINNT from CMAKE_SYSTEM_VERSION: ${ ${MODULE_NAME}_WIN32_WINNT_DEFAULT}")
+  get_win32_winnt(module_WIN32_WINNT_DEFAULT)
+  message(STATUS "Detected module_WIN32_WINNT from CMAKE_SYSTEM_VERSION: ${module_WIN32_WINNT_DEFAULT}")
 
   # TODO limit _WIN32_WINNT to the actual Windows SDK version, which might be different from the default version
   # installed with Visual Studio
   if(MSVC_VERSION STREQUAL "1500" AND CMAKE_SYSTEM_VERSION VERSION_GREATER "6.0")
-    set(${MODULE_NAME}_WIN32_WINNT_LIMIT "0x0600")
+    set(module_WIN32_WINNT_LIMIT "0x0600")
   elseif(MSVC_VERSION STREQUAL "1600" AND CMAKE_SYSTEM_VERSION VERSION_GREATER "6.1")
-    set(${MODULE_NAME}_WIN32_WINNT_LIMIT "0x0601")
+    set(module_WIN32_WINNT_LIMIT "0x0601")
   elseif(MSVC_VERSION STREQUAL "1700" AND CMAKE_SYSTEM_VERSION VERSION_GREATER "6.1")
-    set(${MODULE_NAME}_WIN32_WINNT_LIMIT "0x0601")
+    set(module_WIN32_WINNT_LIMIT "0x0601")
   elseif(MSVC_VERSION STREQUAL "1800" AND CMAKE_SYSTEM_VERSION VERSION_GREATER "6.2")
-    set(${MODULE_NAME}_WIN32_WINNT_LIMIT "0x0602")
+    set(module_WIN32_WINNT_LIMIT "0x0602")
   endif()
-  if(${MODULE_NAME}_WIN32_WINNT_LIMIT)
+  if(module_WIN32_WINNT_LIMIT)
     message(
       STATUS
-        "Mismatch of Visual Studio Version (${MSVC_VERSION}) and CMAKE_SYSTEM_VERSION (${CMAKE_SYSTEM_VERSION}), limiting _WIN32_WINNT to ${ ${MODULE_NAME}_WIN32_WINNT_LIMIT}, you may override this by setting ${MODULE_NAME}_WIN32_WINNT"
+        "Mismatch of Visual Studio Version (${MSVC_VERSION}) and CMAKE_SYSTEM_VERSION (${CMAKE_SYSTEM_VERSION}), limiting module_WIN32_WINNT to ${module_WIN32_WINNT_LIMIT}, you may override this by setting module_WIN32_WINNT"
     )
-    set(${MODULE_NAME}_WIN32_WINNT_DEFAULT "${ ${MODULE_NAME}_WIN32_WINNT_LIMIT}")
+    set(module_WIN32_WINNT_DEFAULT "${module_WIN32_WINNT_LIMIT}")
   endif()
 
-  set(${MODULE_NAME}_WIN32_WINNT
-      "${ ${MODULE_NAME}_WIN32_WINNT_DEFAULT}"
-      CACHE STRING "Value to set _WIN32_WINNT to for building [default=autodetect from build environment]")
+  set(module_WIN32_WINNT
+      "${module_WIN32_WINNT_DEFAULT}"
+      CACHE STRING "Value to set module_WIN32_WINNT to for building [default=autodetect from build environment]")
 
-  add_definitions(-D_WIN32_WINNT=${ ${MODULE_NAME}_WIN32_WINNT})
+  add_definitions(-D_WIN32_WINNT=${module_WIN32_WINNT})
 endif(WIN32)
 
 
@@ -203,6 +203,7 @@ endif()
 # link options
 
 if(MSVC)
+  # drpc
   set(DRPC_ROOT "" CACHE PATH "Location of ZeroMQ")
   set(DRPC_VERSION_MAJOR 0)
   set(DRPC_VERSION_MINOR 1)
@@ -231,6 +232,36 @@ if(MSVC)
       optimized
       libdrpc${MSVC_TOOLSET}-mt-${DRPC_VERSION_MAJOR}_${DRPC_VERSION_MINOR}_${DRPC_VERSION_MICRO}.lib debug
       libdrpc${MSVC_TOOLSET}-mt-gd-${DRPC_VERSION_MAJOR}_${DRPC_VERSION_MINOR}_${DRPC_VERSION_MICRO}.lib)
+	  
+  # zmq
+  set(ZMQ_ROOT "" CACHE PATH "Location of ZeroMQ")
+  set(ZMQ_VERSION_MAJOR 4)
+  set(ZMQ_VERSION_MINOR 3)
+  set(ZMQ_VERSION_MICRO 4)
+  if(CMAKE_CL_64)
+    find_path(
+      ZMQ_ROOT include/zmq.hpp
+      PATHS
+        "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Miru\\ZeroMQ ${ZMQ_VERSION_MAJOR}.${ZMQ_VERSION_MINOR}.${ZMQ_VERSION_MICRO}]"
+      NO_DEFAULT_PATH)
+	message(STATUS "ZeroMQ x86 detected - ${ZMQ_ROOT}")
+  else()
+    find_path(
+      ZMQ_ROOT include/zmq.hpp
+      PATHS
+        "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Miru\\ZeroMQ ${ZMQ_VERSION_MAJOR}.${ZMQ_VERSION_MINOR}.${ZMQ_VERSION_MICRO}]"
+        "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Miru\\ZeroMQ ${ZMQ_VERSION_MAJOR}.${ZMQ_VERSION_MINOR}.${ZMQ_VERSION_MICRO}]"
+        NO_DEFAULT_PATH)
+    message(STATUS "ZeroMQ x86 detected - ${ZMQ_ROOT}")
+  endif()
+  #set(ZMQ_INCLUDE_DIRS ${ZMQ_ROOT}/include)
+  #set(ZMQ_LIBRARY_DIRS ${ZMQ_ROOT}/lib)
+  set(ZMQ_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/depends/include)
+  set(ZMQ_LIBRARY_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/depends/lib)
+  set(ZMQ_LIBRARIES
+      optimized
+      libzmq${MSVC_TOOLSET}-mt-${ZMQ_VERSION_MAJOR}_${ZMQ_VERSION_MINOR}_${ZMQ_VERSION_MICRO}.lib debug
+      libzmq${MSVC_TOOLSET}-mt-gd-${ZMQ_VERSION_MAJOR}_${ZMQ_VERSION_MINOR}_${ZMQ_VERSION_MICRO}.lib)
 else()
 
   # depend ZeroMQ
@@ -503,16 +534,16 @@ if(BUILD_SHARED)
   target_link_libraries(lib${MODULE_NAME}_client_if ${CMAKE_THREAD_LIBS_INIT})
   target_link_libraries(lib${MODULE_NAME}_server_if ${CMAKE_THREAD_LIBS_INIT})
   
-  target_link_libraries(lib${MODULE_NAME}_client_if ${DRPC_LIBRARIES})
-  target_link_libraries(lib${MODULE_NAME}_server_if ${DRPC_LIBRARIES})
+  target_link_libraries(lib${MODULE_NAME}_client_if ${DRPC_LIBRARIES} ${ZMQ_LIBRARIES})
+  target_link_libraries(lib${MODULE_NAME}_server_if ${DRPC_LIBRARIES} ${ZMQ_LIBRARIES})
 endif()
 
 if(BUILD_STATIC)
   target_link_libraries(lib${MODULE_NAME}_client_if-static ${CMAKE_THREAD_LIBS_INIT})
   target_link_libraries(lib${MODULE_NAME}_server_if-static ${CMAKE_THREAD_LIBS_INIT})
 
-  target_link_libraries(lib${MODULE_NAME}_client_if-static ${DRPC_LIBRARIES})
-  target_link_libraries(lib${MODULE_NAME}_server_if-static ${DRPC_LIBRARIES})
+  target_link_libraries(lib${MODULE_NAME}_client_if-static ${DRPC_LIBRARIES} ${ZMQ_LIBRARIES})
+  target_link_libraries(lib${MODULE_NAME}_server_if-static ${DRPC_LIBRARIES} ${ZMQ_LIBRARIES})
 endif()
 
 
